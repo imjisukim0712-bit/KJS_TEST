@@ -10,6 +10,7 @@ html, body {
 }
 
 .screen {
+  position: relative;
   width: 100vw;
   height: 100vh;
   display: flex;
@@ -56,8 +57,9 @@ html, body {
   padding: 24px;
 }
 
+/* ID 선택자(#save-form 등)의 display 규칙보다 확실히 우선하도록 !important를 쓴다. */
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .view:not(.hidden) {
@@ -137,6 +139,34 @@ button:hover {
 
 .personal-best {
   font-size: 1rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.round-hud {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1rem;
+  font-weight: bold;
+  margin: 0;
+  padding: 6px 18px;
+  border-radius: 999px;
+  background-color: rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.mode-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.placement-summary {
+  font-size: 0.95rem;
   opacity: 0.9;
   margin: 0;
 }

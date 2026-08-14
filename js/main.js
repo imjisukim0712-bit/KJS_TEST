@@ -7,6 +7,8 @@ const DECOY_DURATION_MS = 350;
 const DECOY_MIN_DELAY_FOR_FLASH = 1500;
 const DECOY_PROBABILITY = 0.6;
 const BEST_MS_KEY = "reactionGame.bestMs";
+const PLACEMENT_AVG_KEY = "reactionGame.placementAvgMs";
+const PLACEMENT_ROUNDS = 5;
 
 const TIERS = [
   { name: "챌린저", maxMs: 150, className: "tier-challenger", flavor: "챌린저! 프로게이머급 반응속도입니다" },
@@ -48,8 +50,12 @@ const els = {
     result: document.getElementById("result-view"),
   },
   startBtn: document.getElementById("start-btn"),
+  placementBtn: document.getElementById("placement-btn"),
   restartBtn: document.getElementById("restart-btn"),
   retryBtn: document.getElementById("retry-btn"),
+  homeBtn: document.getElementById("home-btn"),
+  roundHud: document.getElementById("round-hud"),
+  placementSummary: document.getElementById("placement-summary"),
   saveForm: document.getElementById("save-form"),
   saveBtn: document.getElementById("save-btn"),
   nicknameInput: document.getElementById("nickname-input"),
@@ -79,6 +85,23 @@ function setStoredBest(ms) {
   }
 }
 
+function getStoredPlacementAvg() {
+  try {
+    const raw = localStorage.getItem(PLACEMENT_AVG_KEY);
+    return raw === null ? null : Number(raw);
+  } catch {
+    return null;
+  }
+}
+
+function setStoredPlacementAvg(ms) {
+  try {
+    localStorage.setItem(PLACEMENT_AVG_KEY, String(ms));
+  } catch {
+    // localStorage를 사용할 수 없으면 배치고사 결과 저장은 건너뛴다.
+  }
+}
+
 let state = "idle";
 let timerId = null;
 let decoyTimerId = null;
@@ -86,6 +109,9 @@ let decoyEndTimerId = null;
 let redAt = 0;
 let lastMs = null;
 let successStreak = 0;
+let mode = "single";
+let placementTimes = [];
+let placementFails = 0;
 
 function setState(next) {
   state = next;
@@ -93,6 +119,48 @@ function setState(next) {
   Object.entries(els.views).forEach(([name, view]) => {
     view.classList.toggle("hidden", name !== next);
   });
+}
+
+function startSingle() {
+  mode = "single";
+  placementTimes = [];
+  placementFails = 0;
+  updateRoundHud();
+  startWaiting();
+}
+
+function startPlacement() {
+  mode = "placement";
+  placementTimes = [];
+  placementFails = 0;
+  updateRoundHud();
+  startWaiting();
+}
+
+function goToIdle() {
+  clearTimeout(timerId);
+  clearTimeout(decoyTimerId);
+  clearTimeout(decoyEndTimerId);
+  mode = "single";
+  placementTimes = [];
+  placementFails = 0;
+  successStreak = 0;
+  updateRoundHud();
+  setState("idle");
+  renderIdleTier();
+}
+
+function updateRoundHud() {
+  if (mode !== "placement" || placementTimes.length >= PLACEMENT_ROUNDS) {
+    els.roundHud.classList.add("hidden");
+    return;
+  }
+  const roundNo = placementTimes.length + 1;
+  const last = placementTimes.length > 0
+    ? ` · 직전 ${placementTimes[placementTimes.length - 1]}ms`
+    : "";
+  els.roundHud.textContent = `배치고사 ${roundNo}/${PLACEMENT_ROUNDS}${last}`;
+  els.roundHud.classList.remove("hidden");
 }
 
 function startWaiting() {
@@ -123,10 +191,23 @@ function handleScreenClick() {
     clearTimeout(decoyTimerId);
     clearTimeout(decoyEndTimerId);
     successStreak = 0;
+    if (mode === "placement") placementFails += 1;
     setState("fail");
   } else if (state === "ready") {
     lastMs = Math.round(performance.now() - redAt);
     successStreak += 1;
+
+    if (mode === "placement") {
+      placementTimes.push(lastMs);
+      if (placementTimes.length < PLACEMENT_ROUNDS) {
+        updateRoundHud();
+        startWaiting();
+        return;
+      }
+      showPlacementResult();
+      return;
+    }
+
     showResult();
   }
 }
@@ -137,6 +218,10 @@ async function showResult() {
   els.nicknameInput.value = "";
   els.saveBtn.disabled = false;
   els.saveStatus.textContent = "";
+  els.saveForm.classList.remove("hidden");
+  els.saveStatus.classList.remove("hidden");
+  els.placementSummary.classList.add("hidden");
+  els.retryBtn.textContent = "다시하기";
 
   const storedBest = getStoredBest();
   const isNewRecord = storedBest === null || lastMs < storedBest;
@@ -158,15 +243,59 @@ async function showResult() {
   await refreshRanking();
 }
 
+// 배치고사는 5판 평균으로 정식 티어를 결정하며, 리더보드에는 저장하지 않는다.
+async function showPlacementResult() {
+  setState("result");
+  updateRoundHud();
+
+  const total = placementTimes.reduce((sum, ms) => sum + ms, 0);
+  const avg = Math.round(total / placementTimes.length);
+
+  els.resultMs.textContent = `평균 ${avg} ms`;
+  const prevAvg = getStoredPlacementAvg();
+  const isNewRecord = prevAvg === null || avg < prevAvg;
+  if (isNewRecord) setStoredPlacementAvg(avg);
+  els.resultMs.classList.toggle("new-record", isNewRecord);
+
+  const tier = getTier(avg);
+  els.tierBadge.textContent = `정식 티어 ${tier.name} — ${tier.flavor}`;
+  els.tierBadge.className = `tier-badge ${tier.className}`;
+
+  els.streakCallout.classList.add("hidden");
+  els.personalBest.textContent = isNewRecord
+    ? "배치고사 최고 평균 갱신!"
+    : `배치고사 최고 평균: ${prevAvg} ms`;
+
+  const failText = placementFails > 0 ? ` · 실패 ${placementFails}회` : "";
+  els.placementSummary.textContent = `라운드 기록: ${placementTimes.join(" / ")} ms${failText}`;
+  els.placementSummary.classList.remove("hidden");
+
+  els.saveForm.classList.add("hidden");
+  els.saveStatus.classList.add("hidden");
+  els.retryBtn.textContent = "배치고사 다시";
+
+  renderIdleTier();
+  await refreshRanking();
+}
+
 function renderIdleTier() {
+  const placementAvg = getStoredPlacementAvg();
+  if (placementAvg !== null) {
+    const tier = getTier(placementAvg);
+    els.idleTier.textContent = `정식 티어: ${tier.name} (배치 평균 ${placementAvg}ms)`;
+    els.idleTier.className = `idle-tier ${tier.className}`;
+    return;
+  }
+
   const storedBest = getStoredBest();
   if (storedBest === null) {
-    els.idleTier.textContent = "";
+    els.idleTier.textContent = "배치고사 5판을 완료하면 정식 티어가 결정됩니다";
     els.idleTier.className = "idle-tier";
     return;
   }
+
   const tier = getTier(storedBest);
-  els.idleTier.textContent = `현재 티어: ${tier.name} (최고기록 ${storedBest}ms)`;
+  els.idleTier.textContent = `잠정 티어: ${tier.name} (최고기록 ${storedBest}ms) · 배치고사 미완료`;
   els.idleTier.className = `idle-tier ${tier.className}`;
 }
 
@@ -197,9 +326,15 @@ async function refreshRanking() {
 
 els.startBtn.addEventListener("click", (e) => {
   e.stopPropagation();
-  startWaiting();
+  startSingle();
 });
 
+els.placementBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  startPlacement();
+});
+
+// 실패한 라운드는 기록에 반영하지 않고 같은 라운드를 다시 진행한다.
 els.restartBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   startWaiting();
@@ -207,7 +342,16 @@ els.restartBtn.addEventListener("click", (e) => {
 
 els.retryBtn.addEventListener("click", (e) => {
   e.stopPropagation();
-  startWaiting();
+  if (mode === "placement") {
+    startPlacement();
+  } else {
+    startSingle();
+  }
+});
+
+els.homeBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  goToIdle();
 });
 
 els.screen.addEventListener("click", handleScreenClick);

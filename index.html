@@ -9,11 +9,16 @@
 </head>
 <body>
   <div id="game-screen" class="screen screen-idle">
+    <p id="round-hud" class="round-hud hidden"></p>
+
     <section id="idle-view" class="view">
       <h1>반응속도 테스트</h1>
-      <p>버튼을 누르면 시작합니다. 화면이 빨간색으로 바뀌면 최대한 빨리 클릭하세요.</p>
+      <p>화면이 빨간색으로 바뀌면 최대한 빨리 클릭하세요.</p>
       <p id="idle-tier" class="idle-tier"></p>
-      <button id="start-btn" type="button">시작</button>
+      <div class="mode-buttons">
+        <button id="start-btn" type="button">단판 (랭킹 도전)</button>
+        <button id="placement-btn" type="button">배치고사 5판 (티어 결정)</button>
+      </div>
     </section>
 
     <section id="waiting-view" class="view hidden">
@@ -33,6 +38,7 @@
       <p id="result-ms" class="result-ms"></p>
       <p id="streak-callout" class="streak-callout hidden"></p>
       <p id="tier-badge" class="tier-badge"></p>
+      <p id="placement-summary" class="placement-summary hidden"></p>
       <p id="personal-best" class="personal-best"></p>
 
       <form id="save-form">
@@ -46,7 +52,10 @@
         <ol id="ranking-list"></ol>
       </div>
 
-      <button id="retry-btn" type="button">다시하기</button>
+      <div class="mode-buttons">
+        <button id="retry-btn" type="button">다시하기</button>
+        <button id="home-btn" type="button">처음으로</button>
+      </div>
     </section>
   </div>
 
