@@ -6,6 +6,7 @@ const MAX_DELAY_MS = 4000;
 const DECOY_DURATION_MS = 350;
 const DECOY_MIN_DELAY_FOR_FLASH = 1500;
 const DECOY_PROBABILITY = 0.6;
+const BEST_MS_KEY = "reactionGame.bestMs";
 
 const els = {
   screen: document.getElementById("game-screen"),
@@ -23,9 +24,27 @@ const els = {
   saveBtn: document.getElementById("save-btn"),
   nicknameInput: document.getElementById("nickname-input"),
   resultMs: document.getElementById("result-ms"),
+  personalBest: document.getElementById("personal-best"),
   rankingList: document.getElementById("ranking-list"),
   saveStatus: document.getElementById("save-status"),
 };
+
+function getStoredBest() {
+  try {
+    const raw = localStorage.getItem(BEST_MS_KEY);
+    return raw === null ? null : Number(raw);
+  } catch {
+    return null;
+  }
+}
+
+function setStoredBest(ms) {
+  try {
+    localStorage.setItem(BEST_MS_KEY, String(ms));
+  } catch {
+    // localStorage를 사용할 수 없으면 개인 최고기록 저장은 건너뛴다.
+  }
+}
 
 let state = "idle";
 let timerId = null;
@@ -82,6 +101,15 @@ async function showResult() {
   els.nicknameInput.value = "";
   els.saveBtn.disabled = false;
   els.saveStatus.textContent = "";
+
+  const storedBest = getStoredBest();
+  const isNewRecord = storedBest === null || lastMs < storedBest;
+  if (isNewRecord) setStoredBest(lastMs);
+  els.resultMs.classList.toggle("new-record", isNewRecord);
+  els.personalBest.textContent = isNewRecord
+    ? "신기록입니다!"
+    : `내 최고기록: ${storedBest} ms`;
+
   await refreshRanking();
 }
 

@@ -90,6 +90,29 @@ button:hover {
   margin: 0;
 }
 
+.result-ms.new-record {
+  color: #ffe066;
+  animation: record-pulse 0.6s ease-out;
+}
+
+@keyframes record-pulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.personal-best {
+  font-size: 1rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
 #save-form {
   display: flex;
   gap: 8px;
