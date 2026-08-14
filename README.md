@@ -34,12 +34,12 @@ firestore.rules        Firestore 보안 규칙 (콘솔에 붙여넣어 사용)
 4. Firestore "규칙" 탭에 이 저장소의 `firestore.rules` 내용을 붙여넣고 게시합니다.
 5. 저장소 Settings > Secrets and variables > Actions에 아래 6개 Repository secret을 등록합니다.
    (값은 1번에서 발급받은 `firebaseConfig`의 각 필드입니다.)
-   - `FIREBASE_API_KEY`
-   - `FIREBASE_AUTH_DOMAIN`
-   - `FIREBASE_PROJECT_ID`
-   - `FIREBASE_STORAGE_BUCKET`
-   - `FIREBASE_MESSAGING_SENDER_ID`
-   - `FIREBASE_APP_ID`
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
 
 배포 워크플로우가 빌드 시점에 이 secret 값들로 `js/firebase-config.js`를 생성하므로,
 실제 config 값은 저장소 코드에 커밋되지 않습니다. 로컬에서 직접 실행할 때는
