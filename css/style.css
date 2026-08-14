@@ -99,6 +99,12 @@ button:hover {
   width: 160px;
 }
 
+.save-status {
+  font-size: 0.95rem;
+  min-height: 1.2em;
+  margin: 0;
+}
+
 .ranking {
   background-color: rgba(255, 255, 255, 0.15);
   border-radius: 12px;
