@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>반응속도 측정</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <div id="game-screen" class="screen screen-idle">
+    <section id="idle-view" class="view">
+      <h1>반응속도 테스트</h1>
+      <p>버튼을 누르면 시작합니다. 화면이 빨간색으로 바뀌면 최대한 빨리 클릭하세요.</p>
+      <button id="start-btn" type="button">시작</button>
+    </section>
+
+    <section id="waiting-view" class="view hidden">
+      <p>곧 빨간색으로 바뀝니다. 기다리세요...</p>
+    </section>
+
+    <section id="ready-view" class="view hidden">
+      <p>지금 클릭하세요!</p>
+    </section>
+
+    <section id="fail-view" class="view hidden">
+      <p>너무 빨리 클릭했습니다!</p>
+      <button id="restart-btn" type="button">다시 시작</button>
+    </section>
+
+    <section id="result-view" class="view hidden">
+      <p id="result-ms" class="result-ms"></p>
+
+      <form id="save-form">
+        <input id="nickname-input" type="text" maxlength="10" placeholder="닉네임 입력" autocomplete="off" />
+        <button id="save-btn" type="submit">기록 저장</button>
+      </form>
+
+      <div class="ranking">
+        <h2>랭킹 TOP 5</h2>
+        <ol id="ranking-list"></ol>
+      </div>
+
+      <button id="retry-btn" type="button">다시하기</button>
+    </section>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
