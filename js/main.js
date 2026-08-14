@@ -111,13 +111,21 @@ els.retryBtn.addEventListener("click", (e) => {
 
 els.screen.addEventListener("click", handleScreenClick);
 
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("요청 시간이 초과되었습니다.")), ms)),
+  ]);
+}
+
 els.saveForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   e.stopPropagation();
   const nickname = els.nicknameInput.value.trim() || "익명";
   els.saveBtn.disabled = true;
+  els.saveStatus.textContent = "저장 중...";
   try {
-    await saveScore(nickname, lastMs);
+    await withTimeout(saveScore(nickname, lastMs), 8000);
     els.saveStatus.textContent = "기록이 저장되었습니다.";
     await refreshRanking();
   } catch (err) {
