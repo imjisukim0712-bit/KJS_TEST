@@ -1,66 +1,50 @@
 import { saveScore, getTop } from "./db.js";
+import { keyOf, makeRound, renderFaceSvg } from "./faces.js";
 
 const RANKING_SIZE = 5;
-const MIN_DELAY_MS = 1000;
-const MAX_DELAY_MS = 4000;
-const DECOY_DURATION_MS = 350;
-const DECOY_MIN_DELAY_FOR_FLASH = 1500;
-const DECOY_PROBABILITY = 0.6;
-const BEST_MS_KEY = "reactionGame.bestMs";
-const PLACEMENT_AVG_KEY = "reactionGame.placementAvgMs";
-const PLACEMENT_ROUNDS = 5;
+const MEMORIZE_MS = 5000;
+const BEST_MS_KEY = "montageGame.bestMs";
 
+// 몽타주 게임은 얼굴 기억 + 3지 탐색이라 단순 반응속도보다 훨씬 느리다.
+// 티어당 약 1.18배 간격으로 잡아 챌린저가 드물게 나오도록 했다.
 const TIERS = [
-  { name: "챌린저", maxMs: 150, className: "tier-challenger", flavor: "챌린저! 프로게이머급 반응속도입니다" },
-  { name: "그랜드마스터", maxMs: 180, className: "tier-grandmaster", flavor: "그랜드마스터! 손이 눈보다 빠름" },
-  { name: "마스터", maxMs: 210, className: "tier-master", flavor: "마스터급 반응속도!" },
-  { name: "다이아몬드", maxMs: 240, className: "tier-diamond", flavor: "다이아몬드! 진짜 빠름" },
-  { name: "에메랄드", maxMs: 270, className: "tier-emerald", flavor: "에메랄드! 상위권 반응속도" },
-  { name: "플래티넘", maxMs: 300, className: "tier-platinum", flavor: "플래티넘, 꽤 빠른 편" },
-  { name: "골드", maxMs: 350, className: "tier-gold", flavor: "골드! 준수한 반응속도" },
-  { name: "실버", maxMs: 400, className: "tier-silver", flavor: "실버, 평범한 반응속도" },
-  { name: "브론즈", maxMs: 500, className: "tier-bronze", flavor: "브론즈, 연습이 필요해요" },
-  { name: "아이언", maxMs: Infinity, className: "tier-iron", flavor: "아이언... 반응속도 랭크 다시 도전!" },
+  { name: "챌린저", maxMs: 600, className: "tier-challenger", flavor: "챌린저! 프로파일러급 식별 능력" },
+  { name: "그랜드마스터", maxMs: 720, className: "tier-grandmaster", flavor: "그랜드마스터! 한눈에 알아봤군요" },
+  { name: "마스터", maxMs: 850, className: "tier-master", flavor: "마스터급 관찰력!" },
+  { name: "다이아몬드", maxMs: 1000, className: "tier-diamond", flavor: "다이아몬드! 베테랑 형사 수준" },
+  { name: "에메랄드", maxMs: 1180, className: "tier-emerald", flavor: "에메랄드! 상위권 식별력" },
+  { name: "플래티넘", maxMs: 1400, className: "tier-platinum", flavor: "플래티넘, 꽤 예리한 눈" },
+  { name: "골드", maxMs: 1650, className: "tier-gold", flavor: "골드! 준수한 관찰력" },
+  { name: "실버", maxMs: 2000, className: "tier-silver", flavor: "실버, 평범한 목격자" },
+  { name: "브론즈", maxMs: 2500, className: "tier-bronze", flavor: "브론즈, 조금 더 집중해보세요" },
+  { name: "아이언", maxMs: Infinity, className: "tier-iron", flavor: "아이언... 다시 도전!" },
 ];
 
 function getTier(ms) {
   return TIERS.find((tier) => ms < tier.maxMs) ?? TIERS[TIERS.length - 1];
 }
 
-const STREAK_CALLOUTS = {
-  2: "더블킬!",
-  3: "트리플킬!",
-  4: "쿼드라킬!",
-  5: "펜타킬!!",
-};
-
-function getStreakCallout(streak) {
-  if (streak < 2) return "";
-  if (streak >= 6) return `리젠드리! ${streak}연속 성공`;
-  return STREAK_CALLOUTS[streak];
-}
-
 const els = {
   screen: document.getElementById("game-screen"),
   views: {
     idle: document.getElementById("idle-view"),
-    waiting: document.getElementById("waiting-view"),
-    ready: document.getElementById("ready-view"),
+    memorize: document.getElementById("memorize-view"),
+    lineup: document.getElementById("lineup-view"),
     fail: document.getElementById("fail-view"),
     result: document.getElementById("result-view"),
   },
+  phaseHud: document.getElementById("phase-hud"),
+  montageFace: document.getElementById("montage-face"),
+  lineupFaces: document.getElementById("lineup-faces"),
+  failFaces: document.getElementById("fail-faces"),
   startBtn: document.getElementById("start-btn"),
-  placementBtn: document.getElementById("placement-btn"),
   restartBtn: document.getElementById("restart-btn"),
   retryBtn: document.getElementById("retry-btn"),
   homeBtn: document.getElementById("home-btn"),
-  roundHud: document.getElementById("round-hud"),
-  placementSummary: document.getElementById("placement-summary"),
   saveForm: document.getElementById("save-form"),
   saveBtn: document.getElementById("save-btn"),
   nicknameInput: document.getElementById("nickname-input"),
   resultMs: document.getElementById("result-ms"),
-  streakCallout: document.getElementById("streak-callout"),
   tierBadge: document.getElementById("tier-badge"),
   personalBest: document.getElementById("personal-best"),
   idleTier: document.getElementById("idle-tier"),
@@ -85,33 +69,11 @@ function setStoredBest(ms) {
   }
 }
 
-function getStoredPlacementAvg() {
-  try {
-    const raw = localStorage.getItem(PLACEMENT_AVG_KEY);
-    return raw === null ? null : Number(raw);
-  } catch {
-    return null;
-  }
-}
-
-function setStoredPlacementAvg(ms) {
-  try {
-    localStorage.setItem(PLACEMENT_AVG_KEY, String(ms));
-  } catch {
-    // localStorage를 사용할 수 없으면 배치고사 결과 저장은 건너뛴다.
-  }
-}
-
 let state = "idle";
-let timerId = null;
-let decoyTimerId = null;
-let decoyEndTimerId = null;
-let redAt = 0;
+let round = null;
+let lineupShownAt = 0;
 let lastMs = null;
-let successStreak = 0;
-let mode = "single";
-let placementTimes = [];
-let placementFails = 0;
+let countdownRafId = null;
 
 function setState(next) {
   state = next;
@@ -121,107 +83,104 @@ function setState(next) {
   });
 }
 
-function startSingle() {
-  mode = "single";
-  placementTimes = [];
-  placementFails = 0;
-  updateRoundHud();
-  startWaiting();
-}
-
-function startPlacement() {
-  mode = "placement";
-  placementTimes = [];
-  placementFails = 0;
-  updateRoundHud();
-  startWaiting();
-}
-
-function goToIdle() {
-  clearTimeout(timerId);
-  clearTimeout(decoyTimerId);
-  clearTimeout(decoyEndTimerId);
-  mode = "single";
-  placementTimes = [];
-  placementFails = 0;
-  successStreak = 0;
-  updateRoundHud();
-  setState("idle");
-  renderIdleTier();
-}
-
-function updateRoundHud() {
-  if (mode !== "placement" || placementTimes.length >= PLACEMENT_ROUNDS) {
-    els.roundHud.classList.add("hidden");
-    return;
+function stopCountdown() {
+  if (countdownRafId !== null) {
+    cancelAnimationFrame(countdownRafId);
+    countdownRafId = null;
   }
-  const roundNo = placementTimes.length + 1;
-  const last = placementTimes.length > 0
-    ? ` · 직전 ${placementTimes[placementTimes.length - 1]}ms`
-    : "";
-  els.roundHud.textContent = `배치고사 ${roundNo}/${PLACEMENT_ROUNDS}${last}`;
-  els.roundHud.classList.remove("hidden");
 }
 
-function startWaiting() {
-  clearTimeout(timerId);
-  clearTimeout(decoyTimerId);
-  clearTimeout(decoyEndTimerId);
-  setState("waiting");
+function startRound() {
+  stopCountdown();
+  round = makeRound();
+  lastMs = null;
 
-  const delay = MIN_DELAY_MS + Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS);
+  els.montageFace.innerHTML = renderFaceSvg(round.faces.find((f) => keyOf(f) === round.targetKey));
+  setState("memorize");
 
-  if (delay > DECOY_MIN_DELAY_FOR_FLASH && Math.random() < DECOY_PROBABILITY) {
-    const decoyAt = DECOY_DURATION_MS + Math.random() * (delay - DECOY_DURATION_MS * 2);
-    decoyTimerId = setTimeout(() => {
-      els.screen.classList.add("is-decoy");
-      decoyEndTimerId = setTimeout(() => els.screen.classList.remove("is-decoy"), DECOY_DURATION_MS);
-    }, decoyAt);
-  }
+  // setInterval 누적 오차를 피하려고 종료 시각 하나만 기준으로 삼는다.
+  const endAt = performance.now() + MEMORIZE_MS;
+  els.phaseHud.classList.remove("hidden");
 
-  timerId = setTimeout(() => {
-    redAt = performance.now();
-    setState("ready");
-  }, delay);
-}
-
-function handleScreenClick() {
-  if (state === "waiting") {
-    clearTimeout(timerId);
-    clearTimeout(decoyTimerId);
-    clearTimeout(decoyEndTimerId);
-    successStreak = 0;
-    if (mode === "placement") placementFails += 1;
-    setState("fail");
-  } else if (state === "ready") {
-    lastMs = Math.round(performance.now() - redAt);
-    successStreak += 1;
-
-    if (mode === "placement") {
-      placementTimes.push(lastMs);
-      if (placementTimes.length < PLACEMENT_ROUNDS) {
-        updateRoundHud();
-        startWaiting();
-        return;
-      }
-      showPlacementResult();
+  const tick = () => {
+    const remain = endAt - performance.now();
+    if (remain <= 0) {
+      countdownRafId = null;
+      showLineup();
       return;
     }
+    els.phaseHud.textContent = `기억 시간 ${Math.ceil(remain / 1000)}`;
+    countdownRafId = requestAnimationFrame(tick);
+  };
+  tick();
+}
 
-    showResult();
+// 라인업과 오답 공개 화면이 같은 렌더 함수를 쓴다.
+function renderLineup(container, faces, options = {}) {
+  const { revealKey = null, wrongIndex = -1, disabled = false } = options;
+  container.innerHTML = "";
+
+  faces.forEach((face, index) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "face-btn";
+    btn.setAttribute("aria-label", `용의자 ${index + 1}`);
+    btn.innerHTML = renderFaceSvg(face);
+
+    if (revealKey !== null && keyOf(face) === revealKey) btn.classList.add("is-correct");
+    if (index === wrongIndex) btn.classList.add("is-wrong");
+
+    if (disabled) {
+      btn.disabled = true;
+    } else {
+      btn.addEventListener("click", () => handleFaceClick(face, index));
+    }
+
+    container.appendChild(btn);
+  });
+}
+
+function showLineup() {
+  renderLineup(els.lineupFaces, round.faces);
+  els.phaseHud.classList.add("hidden");
+  setState("lineup");
+
+  // 첫 페인트 이후를 측정 시작점으로 잡는다.
+  requestAnimationFrame(() => {
+    lineupShownAt = performance.now();
+    const first = els.lineupFaces.querySelector(".face-btn");
+    if (first) first.focus();
+  });
+}
+
+function handleFaceClick(face, index) {
+  if (state !== "lineup") return;
+
+  if (keyOf(face) === round.targetKey) {
+    finishRound(Math.round(performance.now() - lineupShownAt));
+  } else {
+    showFail(index);
   }
 }
 
-async function showResult() {
+function showFail(wrongIndex) {
+  renderLineup(els.failFaces, round.faces, {
+    revealKey: round.targetKey,
+    wrongIndex,
+    disabled: true,
+  });
+  setState("fail");
+}
+
+// 성공 기록이 존재하는 유일한 지점.
+async function finishRound(ms) {
+  lastMs = ms;
   setState("result");
+
   els.resultMs.textContent = `${lastMs} ms`;
   els.nicknameInput.value = "";
   els.saveBtn.disabled = false;
   els.saveStatus.textContent = "";
-  els.saveForm.classList.remove("hidden");
-  els.saveStatus.classList.remove("hidden");
-  els.placementSummary.classList.add("hidden");
-  els.retryBtn.textContent = "다시하기";
 
   const storedBest = getStoredBest();
   const isNewRecord = storedBest === null || lastMs < storedBest;
@@ -235,67 +194,28 @@ async function showResult() {
   els.tierBadge.textContent = tier.flavor;
   els.tierBadge.className = `tier-badge ${tier.className}`;
 
-  const callout = getStreakCallout(successStreak);
-  els.streakCallout.textContent = callout;
-  els.streakCallout.classList.toggle("hidden", callout === "");
-
   renderIdleTier();
   await refreshRanking();
 }
 
-// 배치고사는 5판 평균으로 정식 티어를 결정하며, 리더보드에는 저장하지 않는다.
-async function showPlacementResult() {
-  setState("result");
-  updateRoundHud();
-
-  const total = placementTimes.reduce((sum, ms) => sum + ms, 0);
-  const avg = Math.round(total / placementTimes.length);
-
-  els.resultMs.textContent = `평균 ${avg} ms`;
-  const prevAvg = getStoredPlacementAvg();
-  const isNewRecord = prevAvg === null || avg < prevAvg;
-  if (isNewRecord) setStoredPlacementAvg(avg);
-  els.resultMs.classList.toggle("new-record", isNewRecord);
-
-  const tier = getTier(avg);
-  els.tierBadge.textContent = `정식 티어 ${tier.name} — ${tier.flavor}`;
-  els.tierBadge.className = `tier-badge ${tier.className}`;
-
-  els.streakCallout.classList.add("hidden");
-  els.personalBest.textContent = isNewRecord
-    ? "배치고사 최고 평균 갱신!"
-    : `배치고사 최고 평균: ${prevAvg} ms`;
-
-  const failText = placementFails > 0 ? ` · 실패 ${placementFails}회` : "";
-  els.placementSummary.textContent = `라운드 기록: ${placementTimes.join(" / ")} ms${failText}`;
-  els.placementSummary.classList.remove("hidden");
-
-  els.saveForm.classList.add("hidden");
-  els.saveStatus.classList.add("hidden");
-  els.retryBtn.textContent = "배치고사 다시";
-
+function goToIdle() {
+  stopCountdown();
+  round = null;
+  lastMs = null;
+  els.phaseHud.classList.add("hidden");
+  setState("idle");
   renderIdleTier();
-  await refreshRanking();
 }
 
 function renderIdleTier() {
-  const placementAvg = getStoredPlacementAvg();
-  if (placementAvg !== null) {
-    const tier = getTier(placementAvg);
-    els.idleTier.textContent = `정식 티어: ${tier.name} (배치 평균 ${placementAvg}ms)`;
-    els.idleTier.className = `idle-tier ${tier.className}`;
-    return;
-  }
-
   const storedBest = getStoredBest();
   if (storedBest === null) {
-    els.idleTier.textContent = "배치고사 5판을 완료하면 정식 티어가 결정됩니다";
+    els.idleTier.textContent = "아직 기록이 없습니다";
     els.idleTier.className = "idle-tier";
     return;
   }
-
   const tier = getTier(storedBest);
-  els.idleTier.textContent = `잠정 티어: ${tier.name} (최고기록 ${storedBest}ms) · 배치고사 미완료`;
+  els.idleTier.textContent = `내 티어: ${tier.name} (최고기록 ${storedBest}ms)`;
   els.idleTier.className = `idle-tier ${tier.className}`;
 }
 
@@ -324,38 +244,6 @@ async function refreshRanking() {
   }
 }
 
-els.startBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  startSingle();
-});
-
-els.placementBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  startPlacement();
-});
-
-// 실패한 라운드는 기록에 반영하지 않고 같은 라운드를 다시 진행한다.
-els.restartBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  startWaiting();
-});
-
-els.retryBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  if (mode === "placement") {
-    startPlacement();
-  } else {
-    startSingle();
-  }
-});
-
-els.homeBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  goToIdle();
-});
-
-els.screen.addEventListener("click", handleScreenClick);
-
 function withTimeout(promise, ms) {
   return Promise.race([
     promise,
@@ -363,9 +251,13 @@ function withTimeout(promise, ms) {
   ]);
 }
 
+els.startBtn.addEventListener("click", startRound);
+els.restartBtn.addEventListener("click", startRound);
+els.retryBtn.addEventListener("click", startRound);
+els.homeBtn.addEventListener("click", goToIdle);
+
 els.saveForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  e.stopPropagation();
   const nickname = els.nicknameInput.value.trim() || "익명";
   els.saveBtn.disabled = true;
   els.saveStatus.textContent = "저장 중...";

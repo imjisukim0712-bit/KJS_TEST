@@ -12,7 +12,7 @@ html, body {
 .screen {
   position: relative;
   width: 100vw;
-  height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -20,7 +20,6 @@ html, body {
   color: #ffffff;
   background-color: #f2f2f2;
   transition: background-color 0.15s ease-out;
-  cursor: pointer;
   user-select: none;
 }
 
@@ -29,16 +28,12 @@ html, body {
   color: #222222;
 }
 
-.screen-waiting {
-  background-color: #5b84c4;
+.screen-memorize {
+  background-color: #3b4a63;
 }
 
-.screen-waiting.is-decoy {
-  background-color: #d97b45;
-}
-
-.screen-ready {
-  background-color: #c8524d;
+.screen-lineup {
+  background-color: #2f6f8f;
 }
 
 .screen-fail {
@@ -77,17 +72,51 @@ html, body {
   }
 }
 
-.waiting-pulse {
-  animation: waiting-pulse 1.6s ease-in-out infinite;
+/* 라인업은 등장 애니메이션 없이 즉시 표시해야 측정 시작 시점이 왜곡되지 않는다. */
+#lineup-view:not(.hidden) {
+  animation: none;
 }
 
-@keyframes waiting-pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
-  }
+.montage-face {
+  width: clamp(140px, 40vw, 200px);
+  background-color: #ffffff;
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.lineup {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.face-btn {
+  width: clamp(92px, 28vw, 180px);
+  padding: 4px;
+  background-color: #ffffff;
+  border: 3px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.face-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.face-btn.is-correct {
+  border-color: #4caf7d;
+}
+
+.face-btn.is-wrong {
+  border-color: #c8524d;
+}
+
+.face-svg,
+.montage-face svg {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 h1 {
@@ -143,12 +172,12 @@ button:hover {
   margin: 0;
 }
 
-.round-hud {
+.phase-hud {
   position: absolute;
   top: 24px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: bold;
   margin: 0;
   padding: 6px 18px;
@@ -163,36 +192,6 @@ button:hover {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
-}
-
-.placement-summary {
-  font-size: 0.95rem;
-  opacity: 0.9;
-  margin: 0;
-}
-
-.streak-callout {
-  font-size: 1.6rem;
-  font-weight: bold;
-  color: #ffe066;
-  margin: 0;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-  animation: streak-pop 0.5s ease-out;
-}
-
-@keyframes streak-pop {
-  0% {
-    transform: scale(0.6) rotate(-4deg);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.15) rotate(2deg);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1) rotate(0);
-    opacity: 1;
-  }
 }
 
 .tier-badge {
@@ -298,4 +297,18 @@ button:hover {
   margin: 0;
   padding-left: 20px;
   text-align: left;
+}
+
+@media (max-width: 420px) {
+  .lineup {
+    gap: 8px;
+  }
+
+  .view {
+    padding: 12px;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
 }

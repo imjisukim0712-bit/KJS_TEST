@@ -3,42 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>반응속도 측정</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><circle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%23c8524d%22/></svg>" />
+  <title>몽타주 - 용의자를 지목하라</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><circle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%233b4a63%22/></svg>" />
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
   <div id="game-screen" class="screen screen-idle">
-    <p id="round-hud" class="round-hud hidden"></p>
+    <p id="phase-hud" class="phase-hud hidden"></p>
 
     <section id="idle-view" class="view">
-      <h1>반응속도 테스트</h1>
-      <p>화면이 빨간색으로 바뀌면 최대한 빨리 클릭하세요.</p>
+      <h1>몽타주 - 용의자를 지목하라</h1>
+      <p>5초간 몽타주를 기억한 뒤, 3명의 용의자 중 같은 얼굴을 최대한 빨리 지목하세요.</p>
       <p id="idle-tier" class="idle-tier"></p>
-      <div class="mode-buttons">
-        <button id="start-btn" type="button">단판 (랭킹 도전)</button>
-        <button id="placement-btn" type="button">배치고사 5판 (티어 결정)</button>
-      </div>
+      <button id="start-btn" type="button">수사 시작</button>
     </section>
 
-    <section id="waiting-view" class="view hidden">
-      <p class="waiting-pulse">곧 빨간색으로 바뀝니다. 기다리세요...</p>
+    <section id="memorize-view" class="view hidden">
+      <p>몽타주를 기억하세요</p>
+      <div id="montage-face" class="montage-face"></div>
     </section>
 
-    <section id="ready-view" class="view hidden">
-      <p>지금 클릭하세요!</p>
+    <section id="lineup-view" class="view hidden">
+      <p>용의자를 지목하세요!</p>
+      <div id="lineup-faces" class="lineup"></div>
     </section>
 
     <section id="fail-view" class="view hidden">
-      <p>너무 빨리 클릭했습니다!</p>
-      <button id="restart-btn" type="button">다시 시작</button>
+      <p>오답! 진짜 용의자는 이 얼굴입니다.</p>
+      <div id="fail-faces" class="lineup"></div>
+      <button id="restart-btn" type="button">다시 수사</button>
     </section>
 
     <section id="result-view" class="view hidden">
       <p id="result-ms" class="result-ms"></p>
-      <p id="streak-callout" class="streak-callout hidden"></p>
       <p id="tier-badge" class="tier-badge"></p>
-      <p id="placement-summary" class="placement-summary hidden"></p>
       <p id="personal-best" class="personal-best"></p>
 
       <form id="save-form">
