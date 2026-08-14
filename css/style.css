@@ -60,6 +60,34 @@ html, body {
   display: none;
 }
 
+.view:not(.hidden) {
+  animation: view-fade-in 0.25s ease-out;
+}
+
+@keyframes view-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.waiting-pulse {
+  animation: waiting-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes waiting-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
 h1 {
   font-size: 2rem;
   margin: 0;
