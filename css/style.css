@@ -178,19 +178,46 @@ button:hover {
   margin: 0;
 }
 
-.phase-hud {
+.penalty-note {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #ffdad2;
+  margin: 0;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background-color: rgba(0, 0, 0, 0.22);
+}
+
+.hud {
   position: absolute;
-  top: 24px;
+  top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 1.1rem;
-  font-weight: bold;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.phase-hud,
+.live-stats {
   margin: 0;
-  padding: 6px 18px;
   border-radius: 999px;
   background-color: rgba(0, 0, 0, 0.25);
   color: #ffffff;
   white-space: nowrap;
+}
+
+.phase-hud {
+  font-size: 1.1rem;
+  font-weight: bold;
+  padding: 6px 18px;
+}
+
+.live-stats {
+  font-size: 0.9rem;
+  font-weight: bold;
+  padding: 4px 14px;
 }
 
 .mode-buttons {
@@ -291,7 +318,13 @@ button:hover {
   background-color: rgba(255, 255, 255, 0.15);
   border-radius: 12px;
   padding: 16px 24px;
-  min-width: 220px;
+  min-width: 240px;
+  max-width: 340px;
+}
+
+/* 시작 화면은 밝은 배경이라 반투명 흰색 박스가 안 보여서 어두운 쪽으로 바꾼다. */
+.screen-idle .ranking {
+  background-color: rgba(0, 0, 0, 0.06);
 }
 
 .ranking h2 {
@@ -299,10 +332,25 @@ button:hover {
   font-size: 1.1rem;
 }
 
+/* 20위까지 담고 넘치는 아래 순위는 스크롤로 볼 수 있게 한다. */
 .ranking ol {
   margin: 0;
-  padding-left: 20px;
+  padding-left: 22px;
   text-align: left;
+  max-height: 168px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ranking li {
+  padding: 1px 0;
+}
+
+.ranking-empty {
+  list-style: none;
+  margin-left: -22px;
+  font-size: 0.9rem;
+  opacity: 0.75;
 }
 
 @media (max-width: 420px) {

@@ -9,13 +9,21 @@
 </head>
 <body>
   <div id="game-screen" class="screen screen-idle">
-    <p id="phase-hud" class="phase-hud hidden"></p>
+    <div id="hud" class="hud hidden">
+      <p id="phase-hud" class="phase-hud"></p>
+      <p id="live-stats" class="live-stats hidden"></p>
+    </div>
 
     <section id="idle-view" class="view">
       <h1>몽타주 - 용의자를 지목하라</h1>
-      <p>5초간 몽타주를 기억한 뒤, 3명의 용의자 중 같은 얼굴을 최대한 빨리 지목하세요.<br />총 5라운드를 진행하고 <strong>평균 기록</strong>으로 티어가 결정됩니다.</p>
+      <p>5초간 몽타주를 기억한 뒤, 3명의 용의자 중 같은 얼굴을 최대한 빨리 지목하세요.<br />총 5라운드를 진행하고 <strong>평균 기록</strong>으로 티어가 결정됩니다.<br />오답이 나면 그 라운드를 다시 하지만 <strong>티어가 1단계 하락</strong>합니다.</p>
       <p id="idle-tier" class="idle-tier"></p>
       <button id="start-btn" type="button">수사 시작</button>
+
+      <div class="ranking">
+        <h2>랭킹 TOP 20</h2>
+        <ol id="idle-ranking-list"></ol>
+      </div>
     </section>
 
     <section id="memorize-view" class="view hidden">
@@ -37,6 +45,7 @@
     <section id="result-view" class="view hidden">
       <p id="result-ms" class="result-ms"></p>
       <p id="tier-badge" class="tier-badge"></p>
+      <p id="penalty-note" class="penalty-note hidden"></p>
       <p id="round-summary" class="round-summary"></p>
       <p id="personal-best" class="personal-best"></p>
 
@@ -47,7 +56,7 @@
       <p id="save-status" class="save-status" aria-live="polite"></p>
 
       <div class="ranking">
-        <h2>랭킹 TOP 5</h2>
+        <h2>랭킹 TOP 20</h2>
         <ol id="ranking-list"></ol>
       </div>
 

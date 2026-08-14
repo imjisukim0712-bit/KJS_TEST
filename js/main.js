@@ -1,11 +1,12 @@
 import { saveScore, getTop } from "./db.js";
 import { keyOf, makeRound, renderFaceSvg } from "./faces.js";
 
-const RANKING_SIZE = 5;
+const RANKING_SIZE = 20;
 const MEMORIZE_MS = 5000;
 const ROUNDS_PER_GAME = 5;
 // 단판 기록이 아니라 5라운드 평균을 저장하므로 키를 따로 쓴다.
 const BEST_AVG_KEY = "montageGame.bestAvgMs";
+const BEST_FAILS_KEY = "montageGame.bestFails";
 
 // 5초간 특징을 미리 외운 상태에서 찾기 때문에 실제 플레이는 예상보다 훨씬 빠르다.
 // 사람의 단순 반응 한계(약 250ms)에 판별 시간을 더한 값이 사실상 하한이라,
@@ -27,6 +28,26 @@ function getTier(ms) {
   return TIERS.find((tier) => ms < tier.maxMs) ?? TIERS[TIERS.length - 1];
 }
 
+// TIERS는 챌린저(0) -> 아이언(마지막) 순이라 인덱스를 더하는 것이 곧 강등이다.
+function tierIndexOf(ms) {
+  const index = TIERS.findIndex((tier) => ms < tier.maxMs);
+  return index === -1 ? TIERS.length - 1 : index;
+}
+
+// 오답 1회당 한 단계 강등하고, 최하위 티어에서 더 내려가지 않게 고정한다.
+function penalizedTierIndex(ms, fails) {
+  return Math.min(TIERS.length - 1, tierIndexOf(ms) + fails);
+}
+
+// 최종 티어가 더 좋은 판이 우선이고, 티어가 같으면 평균이 낮은 판이 이긴다.
+function isBetterRun(candidate, best) {
+  if (best === null) return true;
+  const candidateIndex = penalizedTierIndex(candidate.avgMs, candidate.fails);
+  const bestIndex = penalizedTierIndex(best.avgMs, best.fails);
+  if (candidateIndex !== bestIndex) return candidateIndex < bestIndex;
+  return candidate.avgMs < best.avgMs;
+}
+
 const els = {
   screen: document.getElementById("game-screen"),
   views: {
@@ -36,7 +57,9 @@ const els = {
     fail: document.getElementById("fail-view"),
     result: document.getElementById("result-view"),
   },
+  hud: document.getElementById("hud"),
   phaseHud: document.getElementById("phase-hud"),
+  liveStats: document.getElementById("live-stats"),
   montageFace: document.getElementById("montage-face"),
   lineupFaces: document.getElementById("lineup-faces"),
   failFaces: document.getElementById("fail-faces"),
@@ -53,21 +76,27 @@ const els = {
   personalBest: document.getElementById("personal-best"),
   idleTier: document.getElementById("idle-tier"),
   rankingList: document.getElementById("ranking-list"),
+  idleRankingList: document.getElementById("idle-ranking-list"),
+  penaltyNote: document.getElementById("penalty-note"),
   saveStatus: document.getElementById("save-status"),
 };
 
+// 패널티가 표시에만 적용되면 새로고침으로 사라지므로 오답 횟수도 함께 저장한다.
 function getStoredBest() {
   try {
     const raw = localStorage.getItem(BEST_AVG_KEY);
-    return raw === null ? null : Number(raw);
+    if (raw === null) return null;
+    const fails = Number(localStorage.getItem(BEST_FAILS_KEY));
+    return { avgMs: Number(raw), fails: Number.isFinite(fails) ? fails : 0 };
   } catch {
     return null;
   }
 }
 
-function setStoredBest(ms) {
+function setStoredBest(avgMs, fails) {
   try {
-    localStorage.setItem(BEST_AVG_KEY, String(ms));
+    localStorage.setItem(BEST_AVG_KEY, String(avgMs));
+    localStorage.setItem(BEST_FAILS_KEY, String(fails));
   } catch {
     // localStorage를 사용할 수 없으면 개인 최고기록 저장은 건너뛴다.
   }
@@ -100,6 +129,33 @@ function roundLabel() {
   return `라운드 ${roundTimes.length + 1}/${ROUNDS_PER_GAME}`;
 }
 
+function currentAverage() {
+  if (roundTimes.length === 0) return null;
+  const total = roundTimes.reduce((sum, ms) => sum + ms, 0);
+  return Math.round(total / roundTimes.length);
+}
+
+// 진행 중인 판의 현재 평균과, 지금까지의 오답 패널티까지 반영한 예상 티어를 보여준다.
+function updateLiveStats() {
+  const avg = currentAverage();
+  const failText = failCount > 0 ? ` · 오답 ${failCount}회(-${failCount}단계)` : "";
+
+  if (avg === null) {
+    // 아직 맞힌 라운드가 없으면 평균이 없으므로 패널티만 알려준다.
+    if (failCount === 0) {
+      els.liveStats.classList.add("hidden");
+      return;
+    }
+    els.liveStats.textContent = `오답 ${failCount}회 · 티어 ${failCount}단계 하락 예정`;
+    els.liveStats.className = "live-stats";
+    return;
+  }
+
+  const tier = TIERS[penalizedTierIndex(avg, failCount)];
+  els.liveStats.textContent = `현재 평균 ${avg}ms · 예상 티어 ${tier.name}${failText}`;
+  els.liveStats.className = `live-stats ${tier.className}`;
+}
+
 // 5라운드를 새로 시작한다.
 function startGame() {
   roundTimes = [];
@@ -118,7 +174,8 @@ function startRound() {
 
   // setInterval 누적 오차를 피하려고 종료 시각 하나만 기준으로 삼는다.
   const endAt = performance.now() + MEMORIZE_MS;
-  els.phaseHud.classList.remove("hidden");
+  els.hud.classList.remove("hidden");
+  updateLiveStats();
 
   const tick = () => {
     const remain = endAt - performance.now();
@@ -188,7 +245,9 @@ function showFail(wrongIndex) {
     wrongIndex,
     disabled: true,
   });
-  els.phaseHud.classList.add("hidden");
+  // HUD를 남겨서 오답으로 예상 티어가 떨어지는 걸 바로 보게 한다.
+  els.phaseHud.textContent = roundLabel();
+  updateLiveStats();
   setState("fail");
 }
 
@@ -207,7 +266,7 @@ function finishRound(ms) {
 // 5라운드 평균이 확정되는 유일한 지점.
 async function showGameResult() {
   stopCountdown();
-  els.phaseHud.classList.add("hidden");
+  els.hud.classList.add("hidden");
   setState("result");
 
   const total = roundTimes.reduce((sum, ms) => sum + ms, 0);
@@ -218,20 +277,35 @@ async function showGameResult() {
   els.saveBtn.disabled = false;
   els.saveStatus.textContent = "";
 
+  // 오답 1회당 한 단계 강등한 티어가 이 판의 최종 티어다.
+  const baseIndex = tierIndexOf(lastAvgMs);
+  const finalIndex = penalizedTierIndex(lastAvgMs, failCount);
+  const baseTier = TIERS[baseIndex];
+  const finalTier = TIERS[finalIndex];
+
+  els.tierBadge.textContent = finalTier.flavor;
+  els.tierBadge.className = `tier-badge ${finalTier.className}`;
+
+  const dropped = finalIndex - baseIndex;
+  if (failCount === 0) {
+    els.penaltyNote.classList.add("hidden");
+  } else {
+    els.penaltyNote.textContent = dropped > 0
+      ? `오답 ${failCount}회 → 티어 ${dropped}단계 하락 (${baseTier.name} → ${finalTier.name})`
+      : `오답 ${failCount}회 → 이미 최하위 티어입니다`;
+    els.penaltyNote.classList.remove("hidden");
+  }
+
+  const currentRun = { avgMs: lastAvgMs, fails: failCount };
   const storedBest = getStoredBest();
-  const isNewRecord = storedBest === null || lastAvgMs < storedBest;
-  if (isNewRecord) setStoredBest(lastAvgMs);
+  const isNewRecord = isBetterRun(currentRun, storedBest);
+  if (isNewRecord) setStoredBest(lastAvgMs, failCount);
   els.resultMs.classList.toggle("new-record", isNewRecord);
   els.personalBest.textContent = isNewRecord
     ? "신기록입니다!"
-    : `내 최고 평균: ${storedBest} ms`;
+    : `내 최고 기록: ${storedBest.avgMs} ms (${TIERS[penalizedTierIndex(storedBest.avgMs, storedBest.fails)].name})`;
 
-  const tier = getTier(lastAvgMs);
-  els.tierBadge.textContent = tier.flavor;
-  els.tierBadge.className = `tier-badge ${tier.className}`;
-
-  const failText = failCount > 0 ? ` · 오답 ${failCount}회` : "";
-  els.roundSummary.textContent = `라운드 기록: ${roundTimes.join(" / ")} ms${failText}`;
+  els.roundSummary.textContent = `라운드 기록: ${roundTimes.join(" / ")} ms`;
 
   renderIdleTier();
   await refreshRanking();
@@ -243,7 +317,7 @@ function goToIdle() {
   roundTimes = [];
   failCount = 0;
   lastAvgMs = null;
-  els.phaseHud.classList.add("hidden");
+  els.hud.classList.add("hidden");
   setState("idle");
   renderIdleTier();
 }
@@ -255,13 +329,23 @@ function renderIdleTier() {
     els.idleTier.className = "idle-tier";
     return;
   }
-  const tier = getTier(storedBest);
-  els.idleTier.textContent = `내 티어: ${tier.name} (최고 평균 ${storedBest}ms)`;
+  const tier = TIERS[penalizedTierIndex(storedBest.avgMs, storedBest.fails)];
+  const failText = storedBest.fails > 0 ? `, 오답 ${storedBest.fails}회` : "";
+  els.idleTier.textContent = `내 티어: ${tier.name} (최고 평균 ${storedBest.avgMs}ms${failText})`;
   els.idleTier.className = `idle-tier ${tier.className}`;
 }
 
-function renderRanking(top) {
-  els.rankingList.innerHTML = "";
+function renderRankingInto(listEl, top) {
+  listEl.innerHTML = "";
+
+  if (top.length === 0) {
+    const li = document.createElement("li");
+    li.className = "ranking-empty";
+    li.textContent = "아직 등록된 기록이 없습니다";
+    listEl.appendChild(li);
+    return;
+  }
+
   top.forEach((record) => {
     const li = document.createElement("li");
     const tier = getTier(record.ms);
@@ -272,8 +356,14 @@ function renderRanking(top) {
     tag.className = `tier-tag ${tier.className}`;
     li.appendChild(text);
     li.appendChild(tag);
-    els.rankingList.appendChild(li);
+    listEl.appendChild(li);
   });
+}
+
+// 시작 화면과 결과 화면 두 곳에 같은 랭킹을 뿌린다.
+function renderRanking(top) {
+  renderRankingInto(els.rankingList, top);
+  renderRankingInto(els.idleRankingList, top);
 }
 
 async function refreshRanking() {
@@ -316,3 +406,5 @@ els.saveForm.addEventListener("submit", async (e) => {
 
 setState("idle");
 renderIdleTier();
+// 시작 화면에서도 랭킹을 볼 수 있어야 하므로 처음 로드할 때 한 번 불러온다.
+refreshRanking();
