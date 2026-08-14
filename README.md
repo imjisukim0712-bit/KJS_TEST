@@ -1,5 +1,7 @@
 # 반응속도 측정 웹앱
 
+**플레이하기: https://imjisukim0712-bit.github.io/KJS_TEST/**
+
 화면이 파란색에서 빨간색으로 바뀌는 순간부터 클릭까지 걸린 시간(ms)을 측정하는 웹 게임입니다.
 프론트엔드는 순수 HTML/CSS/JS로 작성되어 GitHub Pages에 그대로 배포할 수 있고,
 기록 저장/조회는 Firebase(Firestore)를 사용합니다.
@@ -65,4 +67,4 @@ python3 -m http.server 8000
 
 1. 저장소 Settings > Pages > Build and deployment > Source를 "GitHub Actions"로 선택합니다. (최초 1회)
 2. `main` 브랜치에 push되면 `.github/workflows/deploy.yml` 워크플로우가 자동으로 정적 파일을 배포합니다.
-3. 배포 후 주소는 `https://<사용자명>.github.io/<저장소명>/` 형태입니다.
+3. 배포 주소: https://imjisukim0712-bit.github.io/KJS_TEST/
