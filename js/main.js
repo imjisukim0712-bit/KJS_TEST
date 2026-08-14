@@ -12,7 +12,7 @@ try {
 
 const RANKING_SIZE = 5;
 const MIN_DELAY_MS = 1000;
-const MAX_DELAY_MS = 12000;
+const MAX_DELAY_MS = 4000;
 
 const els = {
   screen: document.getElementById("game-screen"),

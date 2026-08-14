@@ -29,11 +29,11 @@ html, body {
 }
 
 .screen-waiting {
-  background-color: #1e6fff;
+  background-color: #5b84c4;
 }
 
 .screen-ready {
-  background-color: #e53935;
+  background-color: #c8524d;
 }
 
 .screen-fail {
@@ -41,7 +41,7 @@ html, body {
 }
 
 .screen-result {
-  background-color: #2ecc71;
+  background-color: #4caf7d;
 }
 
 .view {
