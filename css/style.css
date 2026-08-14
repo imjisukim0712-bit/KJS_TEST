@@ -141,6 +141,74 @@ button:hover {
   margin: 0;
 }
 
+.tier-badge {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin: 0;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.idle-tier {
+  font-size: 1rem;
+  margin: 0;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.tier-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.tier-iron {
+  background-color: #5b5b5b;
+}
+
+.tier-bronze {
+  background-color: #8c5a2b;
+}
+
+.tier-silver {
+  background-color: #8f8f8f;
+}
+
+.tier-gold {
+  background-color: #c98a13;
+}
+
+.tier-platinum {
+  background-color: #2f9e94;
+}
+
+.tier-emerald {
+  background-color: #17945f;
+}
+
+.tier-diamond {
+  background-color: #3d7fc9;
+}
+
+.tier-master {
+  background-color: #8e44ad;
+}
+
+.tier-grandmaster {
+  background-color: #c22a5e;
+}
+
+.tier-challenger {
+  background-image: linear-gradient(135deg, #ffd700, #ff8c00);
+  color: #3a2400;
+}
+
 #save-form {
   display: flex;
   gap: 8px;

@@ -8,6 +8,23 @@ const DECOY_MIN_DELAY_FOR_FLASH = 1500;
 const DECOY_PROBABILITY = 0.6;
 const BEST_MS_KEY = "reactionGame.bestMs";
 
+const TIERS = [
+  { name: "챌린저", maxMs: 150, className: "tier-challenger", flavor: "챌린저! 프로게이머급 반응속도입니다" },
+  { name: "그랜드마스터", maxMs: 180, className: "tier-grandmaster", flavor: "그랜드마스터! 손이 눈보다 빠름" },
+  { name: "마스터", maxMs: 210, className: "tier-master", flavor: "마스터급 반응속도!" },
+  { name: "다이아몬드", maxMs: 240, className: "tier-diamond", flavor: "다이아몬드! 진짜 빠름" },
+  { name: "에메랄드", maxMs: 270, className: "tier-emerald", flavor: "에메랄드! 상위권 반응속도" },
+  { name: "플래티넘", maxMs: 300, className: "tier-platinum", flavor: "플래티넘, 꽤 빠른 편" },
+  { name: "골드", maxMs: 350, className: "tier-gold", flavor: "골드! 준수한 반응속도" },
+  { name: "실버", maxMs: 400, className: "tier-silver", flavor: "실버, 평범한 반응속도" },
+  { name: "브론즈", maxMs: 500, className: "tier-bronze", flavor: "브론즈, 연습이 필요해요" },
+  { name: "아이언", maxMs: Infinity, className: "tier-iron", flavor: "아이언... 반응속도 랭크 다시 도전!" },
+];
+
+function getTier(ms) {
+  return TIERS.find((tier) => ms < tier.maxMs) ?? TIERS[TIERS.length - 1];
+}
+
 const els = {
   screen: document.getElementById("game-screen"),
   views: {
@@ -24,7 +41,9 @@ const els = {
   saveBtn: document.getElementById("save-btn"),
   nicknameInput: document.getElementById("nickname-input"),
   resultMs: document.getElementById("result-ms"),
+  tierBadge: document.getElementById("tier-badge"),
   personalBest: document.getElementById("personal-best"),
+  idleTier: document.getElementById("idle-tier"),
   rankingList: document.getElementById("ranking-list"),
   saveStatus: document.getElementById("save-status"),
 };
@@ -110,14 +129,38 @@ async function showResult() {
     ? "신기록입니다!"
     : `내 최고기록: ${storedBest} ms`;
 
+  const tier = getTier(lastMs);
+  els.tierBadge.textContent = tier.flavor;
+  els.tierBadge.className = `tier-badge ${tier.className}`;
+
+  renderIdleTier();
   await refreshRanking();
+}
+
+function renderIdleTier() {
+  const storedBest = getStoredBest();
+  if (storedBest === null) {
+    els.idleTier.textContent = "";
+    els.idleTier.className = "idle-tier";
+    return;
+  }
+  const tier = getTier(storedBest);
+  els.idleTier.textContent = `현재 티어: ${tier.name} (최고기록 ${storedBest}ms)`;
+  els.idleTier.className = `idle-tier ${tier.className}`;
 }
 
 function renderRanking(top) {
   els.rankingList.innerHTML = "";
   top.forEach((record) => {
     const li = document.createElement("li");
-    li.textContent = `${record.nickname} - ${record.ms}ms`;
+    const tier = getTier(record.ms);
+    const text = document.createElement("span");
+    text.textContent = `${record.nickname} - ${record.ms}ms`;
+    const tag = document.createElement("span");
+    tag.textContent = tier.name;
+    tag.className = `tier-tag ${tier.className}`;
+    li.appendChild(text);
+    li.appendChild(tag);
     els.rankingList.appendChild(li);
   });
 }
@@ -173,3 +216,4 @@ els.saveForm.addEventListener("submit", async (e) => {
 });
 
 setState("idle");
+renderIdleTier();
