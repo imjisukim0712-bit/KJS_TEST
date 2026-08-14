@@ -13,7 +13,8 @@ import { firebaseConfig } from "./firebase-config.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const SCORES_COLLECTION = "scores";
+// 몽타주 게임 전용 컬렉션. 예전 반응속도 게임 기록(scores)과 섞이지 않게 분리했다.
+const SCORES_COLLECTION = "montageScores";
 
 // 반응 시간 기록을 Firestore에 저장한다.
 export async function saveScore(nickname, ms) {

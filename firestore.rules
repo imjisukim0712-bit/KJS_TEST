@@ -3,7 +3,7 @@ rules_version = '2';
 // Firebase 콘솔 > Firestore Database > 규칙 탭에 이 내용을 붙여넣고 게시하세요.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /scores/{scoreId} {
+    match /montageScores/{scoreId} {
       allow read: if true;
 
       allow create: if request.resource.data.keys().hasOnly(['nickname', 'ms', 'createdAt'])
