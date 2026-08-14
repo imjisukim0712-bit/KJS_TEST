@@ -25,6 +25,19 @@ function getTier(ms) {
   return TIERS.find((tier) => ms < tier.maxMs) ?? TIERS[TIERS.length - 1];
 }
 
+const STREAK_CALLOUTS = {
+  2: "더블킬!",
+  3: "트리플킬!",
+  4: "쿼드라킬!",
+  5: "펜타킬!!",
+};
+
+function getStreakCallout(streak) {
+  if (streak < 2) return "";
+  if (streak >= 6) return `리젠드리! ${streak}연속 성공`;
+  return STREAK_CALLOUTS[streak];
+}
+
 const els = {
   screen: document.getElementById("game-screen"),
   views: {
@@ -41,6 +54,7 @@ const els = {
   saveBtn: document.getElementById("save-btn"),
   nicknameInput: document.getElementById("nickname-input"),
   resultMs: document.getElementById("result-ms"),
+  streakCallout: document.getElementById("streak-callout"),
   tierBadge: document.getElementById("tier-badge"),
   personalBest: document.getElementById("personal-best"),
   idleTier: document.getElementById("idle-tier"),
@@ -71,6 +85,7 @@ let decoyTimerId = null;
 let decoyEndTimerId = null;
 let redAt = 0;
 let lastMs = null;
+let successStreak = 0;
 
 function setState(next) {
   state = next;
@@ -107,9 +122,11 @@ function handleScreenClick() {
     clearTimeout(timerId);
     clearTimeout(decoyTimerId);
     clearTimeout(decoyEndTimerId);
+    successStreak = 0;
     setState("fail");
   } else if (state === "ready") {
     lastMs = Math.round(performance.now() - redAt);
+    successStreak += 1;
     showResult();
   }
 }
@@ -132,6 +149,10 @@ async function showResult() {
   const tier = getTier(lastMs);
   els.tierBadge.textContent = tier.flavor;
   els.tierBadge.className = `tier-badge ${tier.className}`;
+
+  const callout = getStreakCallout(successStreak);
+  els.streakCallout.textContent = callout;
+  els.streakCallout.classList.toggle("hidden", callout === "");
 
   renderIdleTier();
   await refreshRanking();
