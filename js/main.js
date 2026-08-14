@@ -1,14 +1,4 @@
-let saveScore;
-let getTop;
-try {
-  ({ saveScore, getTop } = await import("./db.js"));
-} catch (err) {
-  console.error("Firebase 연동 모듈을 불러오지 못했습니다. 게임은 계속 플레이할 수 있지만 기록 저장/조회는 동작하지 않습니다.", err);
-  saveScore = async () => {
-    throw new Error("Firebase 연동을 불러오지 못했습니다.");
-  };
-  getTop = async () => [];
-}
+import { saveScore, getTop } from "./db.js";
 
 const RANKING_SIZE = 5;
 const MIN_DELAY_MS = 1000;
