@@ -38,3 +38,20 @@ firestore.rules        Firestore 보안 규칙 (콘솔에 붙여넣어 사용)
 - `getTop(n)`: 반응 시간이 짧은 순으로 상위 `n`개 기록을 가져옵니다.
 
 두 함수 모두 `js/db.js`에서 export하며, 게임 로직(`js/main.js`)은 이 두 함수만 사용해 Firestore와 통신합니다.
+`js/firebase-config.js`를 아직 채우지 않았거나 네트워크 문제로 Firebase 모듈을 불러오지 못해도,
+반응속도 측정 자체는 정상 동작하고 기록 저장/랭킹 조회만 비활성화됩니다.
+
+## 로컬에서 실행하기
+
+빌드 없이 정적 파일이므로 아무 정적 서버로 열면 됩니다.
+
+```bash
+python3 -m http.server 8000
+# 브라우저에서 http://localhost:8000 접속
+```
+
+## GitHub Pages 배포
+
+1. 저장소 Settings > Pages > Build and deployment > Source를 "GitHub Actions"로 선택합니다. (최초 1회)
+2. `main` 브랜치에 push되면 `.github/workflows/deploy.yml` 워크플로우가 자동으로 정적 파일을 배포합니다.
+3. 배포 후 주소는 `https://<사용자명>.github.io/<저장소명>/` 형태입니다.
