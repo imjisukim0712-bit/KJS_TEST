@@ -172,6 +172,12 @@ button:hover {
   margin: 0;
 }
 
+.round-summary {
+  font-size: 0.95rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
 .phase-hud {
   position: absolute;
   top: 24px;

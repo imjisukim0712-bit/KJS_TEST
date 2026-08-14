@@ -3,20 +3,23 @@ import { keyOf, makeRound, renderFaceSvg } from "./faces.js";
 
 const RANKING_SIZE = 5;
 const MEMORIZE_MS = 5000;
-const BEST_MS_KEY = "montageGame.bestMs";
+const ROUNDS_PER_GAME = 5;
+// 단판 기록이 아니라 5라운드 평균을 저장하므로 키를 따로 쓴다.
+const BEST_AVG_KEY = "montageGame.bestAvgMs";
 
-// 몽타주 게임은 얼굴 기억 + 3지 탐색이라 단순 반응속도보다 훨씬 느리다.
-// 티어당 약 1.18배 간격으로 잡아 챌린저가 드물게 나오도록 했다.
+// 5초간 특징을 미리 외운 상태에서 찾기 때문에 실제 플레이는 예상보다 훨씬 빠르다.
+// 사람의 단순 반응 한계(약 250ms)에 판별 시간을 더한 값이 사실상 하한이라,
+// 챌린저를 그 하한 근처로 두고 티어당 약 1.15배 간격으로 빡빡하게 잡았다.
 const TIERS = [
-  { name: "챌린저", maxMs: 600, className: "tier-challenger", flavor: "챌린저! 프로파일러급 식별 능력" },
-  { name: "그랜드마스터", maxMs: 720, className: "tier-grandmaster", flavor: "그랜드마스터! 한눈에 알아봤군요" },
-  { name: "마스터", maxMs: 850, className: "tier-master", flavor: "마스터급 관찰력!" },
-  { name: "다이아몬드", maxMs: 1000, className: "tier-diamond", flavor: "다이아몬드! 베테랑 형사 수준" },
-  { name: "에메랄드", maxMs: 1180, className: "tier-emerald", flavor: "에메랄드! 상위권 식별력" },
-  { name: "플래티넘", maxMs: 1400, className: "tier-platinum", flavor: "플래티넘, 꽤 예리한 눈" },
-  { name: "골드", maxMs: 1650, className: "tier-gold", flavor: "골드! 준수한 관찰력" },
-  { name: "실버", maxMs: 2000, className: "tier-silver", flavor: "실버, 평범한 목격자" },
-  { name: "브론즈", maxMs: 2500, className: "tier-bronze", flavor: "브론즈, 조금 더 집중해보세요" },
+  { name: "챌린저", maxMs: 320, className: "tier-challenger", flavor: "챌린저! 프로파일러급 식별 능력" },
+  { name: "그랜드마스터", maxMs: 380, className: "tier-grandmaster", flavor: "그랜드마스터! 한눈에 알아봤군요" },
+  { name: "마스터", maxMs: 440, className: "tier-master", flavor: "마스터급 관찰력!" },
+  { name: "다이아몬드", maxMs: 500, className: "tier-diamond", flavor: "다이아몬드! 베테랑 형사 수준" },
+  { name: "에메랄드", maxMs: 570, className: "tier-emerald", flavor: "에메랄드! 상위권 식별력" },
+  { name: "플래티넘", maxMs: 650, className: "tier-platinum", flavor: "플래티넘, 꽤 예리한 눈" },
+  { name: "골드", maxMs: 750, className: "tier-gold", flavor: "골드! 준수한 관찰력" },
+  { name: "실버", maxMs: 870, className: "tier-silver", flavor: "실버, 평범한 목격자" },
+  { name: "브론즈", maxMs: 1000, className: "tier-bronze", flavor: "브론즈, 조금 더 집중해보세요" },
   { name: "아이언", maxMs: Infinity, className: "tier-iron", flavor: "아이언... 다시 도전!" },
 ];
 
@@ -46,6 +49,7 @@ const els = {
   nicknameInput: document.getElementById("nickname-input"),
   resultMs: document.getElementById("result-ms"),
   tierBadge: document.getElementById("tier-badge"),
+  roundSummary: document.getElementById("round-summary"),
   personalBest: document.getElementById("personal-best"),
   idleTier: document.getElementById("idle-tier"),
   rankingList: document.getElementById("ranking-list"),
@@ -54,7 +58,7 @@ const els = {
 
 function getStoredBest() {
   try {
-    const raw = localStorage.getItem(BEST_MS_KEY);
+    const raw = localStorage.getItem(BEST_AVG_KEY);
     return raw === null ? null : Number(raw);
   } catch {
     return null;
@@ -63,7 +67,7 @@ function getStoredBest() {
 
 function setStoredBest(ms) {
   try {
-    localStorage.setItem(BEST_MS_KEY, String(ms));
+    localStorage.setItem(BEST_AVG_KEY, String(ms));
   } catch {
     // localStorage를 사용할 수 없으면 개인 최고기록 저장은 건너뛴다.
   }
@@ -72,8 +76,10 @@ function setStoredBest(ms) {
 let state = "idle";
 let round = null;
 let lineupShownAt = 0;
-let lastMs = null;
 let countdownRafId = null;
+let roundTimes = [];
+let failCount = 0;
+let lastAvgMs = null;
 
 function setState(next) {
   state = next;
@@ -90,10 +96,22 @@ function stopCountdown() {
   }
 }
 
+function roundLabel() {
+  return `라운드 ${roundTimes.length + 1}/${ROUNDS_PER_GAME}`;
+}
+
+// 5라운드를 새로 시작한다.
+function startGame() {
+  roundTimes = [];
+  failCount = 0;
+  lastAvgMs = null;
+  startRound();
+}
+
+// 다음(또는 실패해서 재시도하는) 라운드를 시작한다. roundTimes는 유지된다.
 function startRound() {
   stopCountdown();
   round = makeRound();
-  lastMs = null;
 
   els.montageFace.innerHTML = renderFaceSvg(round.faces.find((f) => keyOf(f) === round.targetKey));
   setState("memorize");
@@ -109,7 +127,7 @@ function startRound() {
       showLineup();
       return;
     }
-    els.phaseHud.textContent = `기억 시간 ${Math.ceil(remain / 1000)}`;
+    els.phaseHud.textContent = `${roundLabel()} · 기억 시간 ${Math.ceil(remain / 1000)}`;
     countdownRafId = requestAnimationFrame(tick);
   };
   tick();
@@ -142,7 +160,7 @@ function renderLineup(container, faces, options = {}) {
 
 function showLineup() {
   renderLineup(els.lineupFaces, round.faces);
-  els.phaseHud.classList.add("hidden");
+  els.phaseHud.textContent = roundLabel();
   setState("lineup");
 
   // 첫 페인트 이후를 측정 시작점으로 잡는다.
@@ -159,6 +177,7 @@ function handleFaceClick(face, index) {
   if (keyOf(face) === round.targetKey) {
     finishRound(Math.round(performance.now() - lineupShownAt));
   } else {
+    failCount += 1;
     showFail(index);
   }
 }
@@ -169,30 +188,50 @@ function showFail(wrongIndex) {
     wrongIndex,
     disabled: true,
   });
+  els.phaseHud.classList.add("hidden");
   setState("fail");
 }
 
-// 성공 기록이 존재하는 유일한 지점.
-async function finishRound(ms) {
-  lastMs = ms;
+// 라운드 하나를 맞혔을 때. 5라운드가 끝나면 평균으로 결과를 낸다.
+function finishRound(ms) {
+  roundTimes.push(ms);
+
+  if (roundTimes.length < ROUNDS_PER_GAME) {
+    startRound();
+    return;
+  }
+
+  showGameResult();
+}
+
+// 5라운드 평균이 확정되는 유일한 지점.
+async function showGameResult() {
+  stopCountdown();
+  els.phaseHud.classList.add("hidden");
   setState("result");
 
-  els.resultMs.textContent = `${lastMs} ms`;
+  const total = roundTimes.reduce((sum, ms) => sum + ms, 0);
+  lastAvgMs = Math.round(total / roundTimes.length);
+
+  els.resultMs.textContent = `평균 ${lastAvgMs} ms`;
   els.nicknameInput.value = "";
   els.saveBtn.disabled = false;
   els.saveStatus.textContent = "";
 
   const storedBest = getStoredBest();
-  const isNewRecord = storedBest === null || lastMs < storedBest;
-  if (isNewRecord) setStoredBest(lastMs);
+  const isNewRecord = storedBest === null || lastAvgMs < storedBest;
+  if (isNewRecord) setStoredBest(lastAvgMs);
   els.resultMs.classList.toggle("new-record", isNewRecord);
   els.personalBest.textContent = isNewRecord
     ? "신기록입니다!"
-    : `내 최고기록: ${storedBest} ms`;
+    : `내 최고 평균: ${storedBest} ms`;
 
-  const tier = getTier(lastMs);
+  const tier = getTier(lastAvgMs);
   els.tierBadge.textContent = tier.flavor;
   els.tierBadge.className = `tier-badge ${tier.className}`;
+
+  const failText = failCount > 0 ? ` · 오답 ${failCount}회` : "";
+  els.roundSummary.textContent = `라운드 기록: ${roundTimes.join(" / ")} ms${failText}`;
 
   renderIdleTier();
   await refreshRanking();
@@ -201,7 +240,9 @@ async function finishRound(ms) {
 function goToIdle() {
   stopCountdown();
   round = null;
-  lastMs = null;
+  roundTimes = [];
+  failCount = 0;
+  lastAvgMs = null;
   els.phaseHud.classList.add("hidden");
   setState("idle");
   renderIdleTier();
@@ -215,7 +256,7 @@ function renderIdleTier() {
     return;
   }
   const tier = getTier(storedBest);
-  els.idleTier.textContent = `내 티어: ${tier.name} (최고기록 ${storedBest}ms)`;
+  els.idleTier.textContent = `내 티어: ${tier.name} (최고 평균 ${storedBest}ms)`;
   els.idleTier.className = `idle-tier ${tier.className}`;
 }
 
@@ -251,9 +292,10 @@ function withTimeout(promise, ms) {
   ]);
 }
 
-els.startBtn.addEventListener("click", startRound);
+els.startBtn.addEventListener("click", startGame);
+// 오답인 라운드는 기록에 넣지 않고 같은 라운드를 다시 진행한다.
 els.restartBtn.addEventListener("click", startRound);
-els.retryBtn.addEventListener("click", startRound);
+els.retryBtn.addEventListener("click", startGame);
 els.homeBtn.addEventListener("click", goToIdle);
 
 els.saveForm.addEventListener("submit", async (e) => {
@@ -262,7 +304,7 @@ els.saveForm.addEventListener("submit", async (e) => {
   els.saveBtn.disabled = true;
   els.saveStatus.textContent = "저장 중...";
   try {
-    await withTimeout(saveScore(nickname, lastMs), 8000);
+    await withTimeout(saveScore(nickname, lastAvgMs), 8000);
     els.saveStatus.textContent = "기록이 저장되었습니다.";
     await refreshRanking();
   } catch (err) {
