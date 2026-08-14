@@ -3,6 +3,9 @@ import { saveScore, getTop } from "./db.js";
 const RANKING_SIZE = 5;
 const MIN_DELAY_MS = 1000;
 const MAX_DELAY_MS = 4000;
+const DECOY_DURATION_MS = 350;
+const DECOY_MIN_DELAY_FOR_FLASH = 1500;
+const DECOY_PROBABILITY = 0.6;
 
 const els = {
   screen: document.getElementById("game-screen"),
@@ -26,6 +29,8 @@ const els = {
 
 let state = "idle";
 let timerId = null;
+let decoyTimerId = null;
+let decoyEndTimerId = null;
 let redAt = 0;
 let lastMs = null;
 
@@ -39,8 +44,20 @@ function setState(next) {
 
 function startWaiting() {
   clearTimeout(timerId);
+  clearTimeout(decoyTimerId);
+  clearTimeout(decoyEndTimerId);
   setState("waiting");
+
   const delay = MIN_DELAY_MS + Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS);
+
+  if (delay > DECOY_MIN_DELAY_FOR_FLASH && Math.random() < DECOY_PROBABILITY) {
+    const decoyAt = DECOY_DURATION_MS + Math.random() * (delay - DECOY_DURATION_MS * 2);
+    decoyTimerId = setTimeout(() => {
+      els.screen.classList.add("is-decoy");
+      decoyEndTimerId = setTimeout(() => els.screen.classList.remove("is-decoy"), DECOY_DURATION_MS);
+    }, decoyAt);
+  }
+
   timerId = setTimeout(() => {
     redAt = performance.now();
     setState("ready");
@@ -50,6 +67,8 @@ function startWaiting() {
 function handleScreenClick() {
   if (state === "waiting") {
     clearTimeout(timerId);
+    clearTimeout(decoyTimerId);
+    clearTimeout(decoyEndTimerId);
     setState("fail");
   } else if (state === "ready") {
     lastMs = Math.round(performance.now() - redAt);

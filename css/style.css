@@ -32,6 +32,10 @@ html, body {
   background-color: #5b84c4;
 }
 
+.screen-waiting.is-decoy {
+  background-color: #d97b45;
+}
+
 .screen-ready {
   background-color: #c8524d;
 }
