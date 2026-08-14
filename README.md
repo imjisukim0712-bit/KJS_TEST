@@ -1,0 +1,40 @@
+# 반응속도 측정 웹앱
+
+화면이 파란색에서 빨간색으로 바뀌는 순간부터 클릭까지 걸린 시간(ms)을 측정하는 웹 게임입니다.
+프론트엔드는 순수 HTML/CSS/JS로 작성되어 GitHub Pages에 그대로 배포할 수 있고,
+기록 저장/조회는 Firebase(Firestore)를 사용합니다.
+
+## 동작 방식
+
+1. "시작" 버튼을 클릭하면 게임이 시작되고 화면이 파란색으로 바뀝니다.
+2. 1~12초 사이 무작위 시간이 지나면 화면이 빨간색으로 바뀝니다.
+3. 빨간색으로 바뀐 순간부터 클릭까지 걸린 시간을 ms 단위로 측정해 초록색 결과 화면에 표시합니다.
+4. 결과 화면에서 닉네임을 입력하고 저장하면 Firestore에 기록이 저장됩니다.
+5. 빨간색으로 바뀌기 전에 클릭하면 실패 처리되며, 버튼을 눌러 다시 시작할 수 있습니다.
+6. 결과 화면에는 저장된 기록 중 상위 랭킹이 함께 표시됩니다.
+
+## 폴더 구조
+
+```
+index.html            게임 화면 마크업
+css/style.css         화면별 스타일
+js/main.js            게임 상태 전환 로직
+js/db.js              saveScore(nickname, ms) / getTop(n) 구현 (Firestore)
+js/firebase-config.js Firebase 웹 앱 설정 값 (직접 채워 넣어야 함)
+firestore.rules        Firestore 보안 규칙 (콘솔에 붙여넣어 사용)
+```
+
+## Firebase 설정 방법
+
+1. https://console.firebase.google.com 에서 새 프로젝트를 만듭니다.
+2. 프로젝트 개요에서 웹 앱(`</>`)을 등록하면 `firebaseConfig` 값이 발급됩니다.
+3. 발급받은 값을 `js/firebase-config.js`의 `firebaseConfig` 객체에 채워 넣습니다.
+4. 왼쪽 메뉴의 "Firestore Database"에서 데이터베이스를 생성합니다.
+5. Firestore "규칙" 탭에 이 저장소의 `firestore.rules` 내용을 붙여넣고 게시합니다.
+
+## 점수 저장/조회 함수
+
+- `saveScore(nickname, ms)`: 닉네임과 반응 시간을 `scores` 컬렉션에 저장합니다.
+- `getTop(n)`: 반응 시간이 짧은 순으로 상위 `n`개 기록을 가져옵니다.
+
+두 함수 모두 `js/db.js`에서 export하며, 게임 로직(`js/main.js`)은 이 두 함수만 사용해 Firestore와 통신합니다.
